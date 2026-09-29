@@ -1,6 +1,6 @@
-- id: hsrc_early_sessions_released
-  alias: HSRC - early sessions released
-  description: Alerts when newly released EARLY sessions are on sale and not yet booked.
+- id: hsrc_basket_unbooked_sessions
+  alias: HSRC - add unbooked sessions to basket
+  description: When newly released EARLY sessions are not booked, adds them to the hsrc.info basket and says so.
   triggers:
     - trigger: state
       entity_id: sensor.hsrc_unbooked_early_sessions
@@ -10,24 +10,31 @@
     - condition: template
       value_template: "{{ trigger.to_state.state | int(0) > trigger.from_state.state | int(0) }}"
   actions:
+    - action: button.press
+      target:
+        entity_id: button.hsrc_add_unbooked_early_sessions_to_basket
     - variables:
-        sessions: "{{ state_attr('sensor.hsrc_unbooked_early_sessions', 'sessions') }}"
+        sessions: "{{ state_attr('sensor.hsrc_unbooked_early_sessions', 'sessions') or [] }}"
+        in_basket: "{{ sessions | selectattr('in_basket') | list }}"
+        full: "{{ sessions | rejectattr('in_basket') | list }}"
     - action: notify.mobile_app_sm_s938b
       data:
-        title: HSRC early sessions released
+        title: HSRC early sessions not booked
         message: >-
-          Not booked yet:
-          {% for session in sessions %}{{ as_datetime(session.date).strftime('%a %-d %b') }}{{ ', ' if not loop.last }}{% endfor %}.
+          {% if in_basket %}In your basket:
+          {% for session in in_basket %}{{ as_datetime(session.date).strftime('%a %-d %b') }}{{ ', ' if not loop.last }}{% endfor %}. Tap to pay.{% endif %}
+          {% if full %}Full:
+          {% for session in full %}{{ as_datetime(session.date).strftime('%a %-d %b') }}{{ ', ' if not loop.last }}{% endfor %}.{% endif %}
         data:
-          url: "{{ sessions[0].url }}"
-          clickAction: "{{ sessions[0].url }}"
+          url: https://hsrc.info/index.php?main_page=shopping_cart
+          clickAction: https://hsrc.info/index.php?main_page=shopping_cart
           ttl: 0
           priority: high
   mode: queued
 
 - id: hsrc_friday_booking_reminder
   alias: HSRC - Friday booking reminder
-  description: Reminds on Friday evening when Monday's EARLY session is not booked.
+  description: On Friday evening, if Monday's EARLY session is not booked, adds it to the basket and reminds.
   triggers:
     - trigger: time
       at: "18:00:00"
@@ -39,19 +46,21 @@
     - condition: state
       entity_id: binary_sensor.hsrc_next_early_session_booked
       state: "off"
+    - action: button.press
+      target:
+        entity_id: button.hsrc_add_unbooked_early_sessions_to_basket
     - variables:
         start: "{{ state_attr('binary_sensor.hsrc_next_early_session_booked', 'start') }}"
         places_left: "{{ state_attr('binary_sensor.hsrc_next_early_session_booked', 'places_left') }}"
-        url: "{{ state_attr('binary_sensor.hsrc_next_early_session_booked', 'url') or 'https://hsrc.info' }}"
     - action: notify.mobile_app_sm_s938b
       data:
         title: Book HSRC early training
         message: >-
           {{ as_datetime(start).strftime('%A %-d %B') }} is not booked.
-          {% if places_left is not none %}{{ places_left }} places left.{% endif %}
+          {% if places_left is none or places_left > 0 %}It's in your basket, tap to pay.{% else %}It's full.{% endif %}
         data:
-          url: "{{ url }}"
-          clickAction: "{{ url }}"
+          url: https://hsrc.info/index.php?main_page=shopping_cart
+          clickAction: https://hsrc.info/index.php?main_page=shopping_cart
           ttl: 0
           priority: high
   mode: single
@@ -69,7 +78,6 @@
         entity_id: binary_sensor.hsrc_next_early_session_booked
     - variables:
         places_left: "{{ state_attr('binary_sensor.hsrc_next_early_session_booked', 'places_left') }}"
-        booking_url: "{{ state_attr('binary_sensor.hsrc_next_early_session_booked', 'url') }}"
         tonight: "{{ state_attr('binary_sensor.hsrc_next_early_session_booked', 'date') == now().date().isoformat() }}"
         booked: "{{ is_state('binary_sensor.hsrc_next_early_session_booked', 'on') }}"
     - action: notify.mobile_app_sm_s938b
@@ -82,8 +90,8 @@
           {% elif booked %}EARLY session 6:00pm to 7:25pm is booked.
           {% else %}EARLY session at 6:00pm is not booked{% if places_left is not none %}, {{ places_left }} places left{% endif %}.{% endif %}
         data:
-          url: "{{ booking_url if tonight and not booked and booking_url else 'https://hsrc.info/index.php?main_page=account_history' }}"
-          clickAction: "{{ booking_url if tonight and not booked and booking_url else 'https://hsrc.info/index.php?main_page=account_history' }}"
+          url: "{{ 'https://hsrc.info/index.php?main_page=shopping_cart' if tonight and not booked else 'https://hsrc.info/index.php?main_page=account_history' }}"
+          clickAction: "{{ 'https://hsrc.info/index.php?main_page=shopping_cart' if tonight and not booked else 'https://hsrc.info/index.php?main_page=account_history' }}"
           ttl: 0
           priority: high
   mode: single

@@ -54,4 +54,5 @@ class UnbookedSessionsSensor(HsrcEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         unbooked = find_unbooked(self.coordinator.data.listed, self.coordinator.data.booked, local_now())
-        return {"sessions": [describe_listed(session) for session in unbooked]}
+        basket_product_ids = self.coordinator.data.basket_product_ids
+        return {"sessions": [describe_listed(session, basket_product_ids) for session in unbooked]}

@@ -7,6 +7,9 @@ LOGIN_URL = f"{BASE_URL}?main_page=login"
 HOME_URL = f"{BASE_URL}?main_page=index"
 ORDER_HISTORY_URL = f"{BASE_URL}?main_page=account_history"
 ORDER_URL = f"{BASE_URL}?main_page=account_history_info&order_id={{order_id}}"
+BASKET_URL = f"{BASE_URL}?main_page=shopping_cart"
+
+MEMBERSHIP_STATUS = "Full"
 
 # Zen Cart starts no session for user agents on its spider list, redirecting login to cookie_usage instead.
 BROWSER_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36"

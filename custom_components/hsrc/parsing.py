@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
+from urllib.parse import parse_qs, urlsplit
 
 from bs4 import BeautifulSoup, Tag
 
@@ -20,6 +21,12 @@ class HsrcParseError(Exception):
 
 @dataclass(frozen=True)
 class LoginForm:
+    action: str
+    fields: dict[str, str]
+
+
+@dataclass(frozen=True)
+class AddToBasketForm:
     action: str
     fields: dict[str, str]
 
@@ -54,6 +61,16 @@ class OrderItem:
 
 def to_https(url: str) -> str:
     return url.replace("http://", "https://", 1)
+
+
+def read_product_id(url: str) -> int | None:
+    product_ids = parse_qs(urlsplit(url).query).get("products_id")
+    return int(product_ids[0].split(":")[0]) if product_ids else None
+
+
+def read_option_label(page: BeautifulSoup, option: Tag) -> str:
+    label = page.find("label", attrs={"for": option.get("id")}) if option.get("id") else None
+    return label.get_text(strip=True).split("(")[0].strip() if label else ""
 
 
 def parse_login_form(html: str) -> LoginForm:
@@ -136,3 +153,26 @@ def parse_order_items(html: str) -> list[OrderItem]:
             continue
         items.append(OrderItem(quantity=int(quantity["quantity"]), name=read_product_name(product_cell)))
     return items
+
+
+def parse_add_to_basket_form(html: str, membership_status: str) -> AddToBasketForm:
+    page = BeautifulSoup(html, "html.parser")
+    form = page.select_one("form[name=cart_quantity]")
+    if form is None:
+        raise HsrcParseError("No add-to-basket form on the product page")
+    fields = {field["name"]: field.get("value", "") for field in form.select("input[type=hidden]") if field.get("name")}
+    for option in form.select("input[type=radio]"):
+        if read_option_label(page, option).casefold() == membership_status.casefold():
+            fields[option["name"]] = option["value"]
+            break
+    else:
+        raise HsrcParseError(f"No {membership_status} membership option on the product page")
+    return AddToBasketForm(action=to_https(form["action"]), fields=fields)
+
+
+def parse_basket_product_ids(html: str) -> set[int]:
+    return {
+        int(field["value"].split(":")[0])
+        for field in BeautifulSoup(html, "html.parser").select('input[name="products_id[]"]')
+        if field.get("value")
+    }

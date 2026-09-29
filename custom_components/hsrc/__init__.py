@@ -9,7 +9,7 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from .api import HsrcApiError, HsrcAuthError, HsrcClient
 from .coordinator import HsrcConfigEntry, HsrcCoordinator
 
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.CALENDAR, Platform.SENSOR]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
 
 
 def create_client(hass: HomeAssistant, entry_data: dict) -> HsrcClient:
