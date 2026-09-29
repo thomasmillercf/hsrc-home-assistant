@@ -11,7 +11,9 @@ from .fixture_loader import load_fixture
 INDEX = "https://hsrc.info/index.php"
 
 
-def mock_site(aioclient_mock: AiohttpClientMocker, login_response: str = "home.html") -> None:
+def mock_site(
+    aioclient_mock: AiohttpClientMocker, login_response: str = "home.html", basket: str = "basket.html"
+) -> None:
     aioclient_mock.get(f"{INDEX}?main_page=login", text=load_fixture("login.html"))
     aioclient_mock.post(f"{INDEX}?main_page=login&action=process", text=load_fixture(login_response))
     aioclient_mock.get(f"{INDEX}?main_page=index&cPath=225", text=load_fixture("october.html"))
@@ -23,6 +25,11 @@ def mock_site(aioclient_mock: AiohttpClientMocker, login_response: str = "home.h
             text=load_fixture(f"order_{order_id}.html"),
         )
     aioclient_mock.get(f"{INDEX}?main_page=account_history", text=load_fixture("order_history.html"))
+    aioclient_mock.get(f"{INDEX}?main_page=shopping_cart", text=load_fixture(basket))
+    aioclient_mock.get(
+        f"{INDEX}?main_page=product_info&cPath=225&products_id=1567", text=load_fixture("product_1567.html")
+    )
+    aioclient_mock.post(f"{INDEX}?main_page=product_info&cPath=225&products_id=1567", text="added")
 
 
 async def set_up_entry(hass: HomeAssistant) -> MockConfigEntry:
@@ -60,6 +67,7 @@ class TestHsrcIntegration:
         assert state.attributes["sessions"][0]["url"] == (
             "https://hsrc.info/index.php?main_page=product_info&cPath=225&products_id=1567"
         )
+        assert [session["in_basket"] for session in state.attributes["sessions"]] == [False, True]
 
     async def test_reports_when_the_next_booked_session_starts(self, hass, aioclient_mock):
         mock_site(aioclient_mock)
@@ -84,3 +92,20 @@ class TestHsrcIntegration:
 
         assert entry.state is ConfigEntryState.SETUP_ERROR
         assert [flow["context"]["source"] for flow in hass.config_entries.flow.async_progress()] == ["reauth"]
+
+    async def test_adds_unbooked_sessions_missing_from_the_basket(self, hass, aioclient_mock):
+        mock_site(aioclient_mock)
+        await set_up_entry(hass)
+
+        await hass.services.async_call(
+            "button", "press", {"entity_id": "button.hsrc_add_unbooked_early_sessions_to_basket"}, blocking=True
+        )
+
+        added = [call for call in aioclient_mock.mock_calls if call[0] == "POST" and "products_id" in str(call[1])]
+        assert [(str(call[1]), call[2]) for call in added] == [
+            (
+                "https://hsrc.info/index.php?main_page=product_info&cPath=225&products_id=1567"
+                "&number_of_uploads=0&action=add_product",
+                {"securityToken": "the-token", "cart_quantity": "1", "products_id": "1567", "id[6]": "66"},
+            )
+        ]

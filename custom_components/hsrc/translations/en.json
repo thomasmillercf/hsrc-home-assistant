@@ -32,6 +32,11 @@
         "name": "Next early session booked"
       }
     },
+    "button": {
+      "add_unbooked_to_basket": {
+        "name": "Add unbooked early sessions to basket"
+      }
+    },
     "calendar": {
       "booked_training": {
         "name": "Early training"

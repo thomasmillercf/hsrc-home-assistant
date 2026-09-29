@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from .const import EARLY_END, EARLY_START
-from .parsing import ListingRow, OrderItem, OrderSummary
+from .parsing import ListingRow, OrderItem, OrderSummary, read_product_id
 
 EARLY_SESSION = re.compile(
     r"^EARLY - Training - (?P<weekday>[A-Za-z]+) (?P<day>\d{1,2}) (?P<month>[A-Za-z]+)\s*$", re.IGNORECASE
@@ -36,6 +36,10 @@ class ListedSession:
     code: str
     places_left: int
     url: str
+
+    @property
+    def product_id(self) -> int | None:
+        return read_product_id(self.url)
 
 
 @dataclass(frozen=True)
@@ -104,3 +108,13 @@ def find_unbooked(listed: list[ListedSession], booked: list[BookedSession], now:
 def find_next_session_day(listed: list[ListedSession], booked: list[BookedSession], now: datetime) -> date | None:
     upcoming = [session.day for session in [*listed, *booked] if is_upcoming(session.day, now)]
     return min(upcoming, default=None)
+
+
+def find_sessions_to_add_to_basket(
+    listed: list[ListedSession], booked: list[BookedSession], basket_product_ids: set[int], now: datetime
+) -> list[ListedSession]:
+    return [
+        session
+        for session in find_unbooked(listed, booked, now)
+        if session.places_left > 0 and session.product_id not in basket_product_ids
+    ]

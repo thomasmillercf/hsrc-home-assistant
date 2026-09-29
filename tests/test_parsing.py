@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 from custom_components.hsrc.parsing import (
+    AddToBasketForm,
     HsrcParseError,
     ListingRow,
     LoginForm,
@@ -10,12 +11,15 @@ from custom_components.hsrc.parsing import (
     OrderSummary,
     TrainingCategory,
     is_logged_in,
+    parse_add_to_basket_form,
+    parse_basket_product_ids,
     parse_listing,
     parse_login_error,
     parse_login_form,
     parse_order_history,
     parse_order_items,
     parse_training_categories,
+    read_product_id,
 )
 
 from .fixture_loader import load_fixture
@@ -70,7 +74,7 @@ class TestParsing:
             ListingRow(
                 "OCT12E",
                 "EARLY - Training - Monday 12 OCTOBER",
-                0,
+                5,
                 "https://hsrc.info/index.php?main_page=product_info&cPath=225&products_id=1567",
             ),
         ]
@@ -86,3 +90,23 @@ class TestParsing:
             OrderItem(1, "EARLY - Training - Monday 05 OCTOBER"),
             OrderItem(1, "DRY Slope Training - Friday 21 AUGUST - WELWYN"),
         ]
+
+    def test_picks_the_full_membership_option_when_adding_to_the_basket(self):
+        assert parse_add_to_basket_form(load_fixture("product_1567.html"), "Full") == AddToBasketForm(
+            action=(
+                "https://hsrc.info/index.php?main_page=product_info&cPath=225&products_id=1567"
+                "&number_of_uploads=0&action=add_product"
+            ),
+            fields={"securityToken": "the-token", "cart_quantity": "1", "products_id": "1567", "id[6]": "66"},
+        )
+
+    def test_rejects_a_product_without_the_membership_option(self):
+        with pytest.raises(HsrcParseError):
+            parse_add_to_basket_form(load_fixture("product_1567.html"), "Honorary")
+
+    def test_reads_the_product_ids_in_the_basket(self):
+        assert parse_basket_product_ids(load_fixture("basket.html")) == {1601}
+
+    def test_reads_the_product_id_from_a_product_link(self):
+        assert read_product_id("https://hsrc.info/index.php?main_page=product_info&products_id=1601:a972ea") == 1601
+        assert read_product_id("https://hsrc.info/index.php?main_page=index") is None

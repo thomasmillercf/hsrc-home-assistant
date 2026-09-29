@@ -7,13 +7,20 @@ from custom_components.hsrc.training import (
     build_booked_sessions,
     build_listed_sessions,
     find_next_session_day,
+    find_sessions_to_add_to_basket,
     find_unbooked,
     read_early_session_day,
 )
 
 
-def build_listed(day: date) -> ListedSession:
-    return ListedSession(day, f"EARLY - Training - {day:%A %d %B}", f"E{day:%m%d}", 10, f"https://example/{day}")
+def build_listed(day: date, places_left: int = 10) -> ListedSession:
+    return ListedSession(
+        day,
+        f"EARLY - Training - {day:%A %d %B}",
+        f"E{day:%m%d}",
+        places_left,
+        f"https://hsrc.info/index.php?main_page=product_info&products_id={day:%m%d}",
+    )
 
 
 def build_booked(day: date) -> BookedSession:
@@ -90,3 +97,18 @@ class TestTraining:
 
         def test_is_none_when_nothing_is_upcoming(self):
             assert find_next_session_day([], [build_booked(date(2026, 9, 28))], datetime(2026, 10, 2, 9)) is None
+
+    class TestFindSessionsToAddToBasket:
+        def test_skips_booked_full_and_already_added_sessions(self):
+            listed = [
+                build_listed(date(2026, 10, 5)),
+                build_listed(date(2026, 10, 12), places_left=0),
+                build_listed(date(2026, 10, 19)),
+                build_listed(date(2026, 10, 26)),
+            ]
+
+            sessions = find_sessions_to_add_to_basket(
+                listed, [build_booked(date(2026, 10, 5))], {1019}, datetime(2026, 10, 2, 9)
+            )
+
+            assert [session.day for session in sessions] == [date(2026, 10, 26)]

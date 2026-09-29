@@ -16,13 +16,14 @@ def to_local_datetime(naive: datetime) -> datetime:
     return naive.replace(tzinfo=dt_util.get_default_time_zone())
 
 
-def describe_listed(session: ListedSession) -> dict[str, Any]:
+def describe_listed(session: ListedSession, basket_product_ids: set[int]) -> dict[str, Any]:
     return {
         "date": session.day.isoformat(),
         "start": to_local_datetime(session_start(session.day)).isoformat(),
         "name": session.name,
         "code": session.code,
         "places_left": session.places_left,
+        "in_basket": session.product_id in basket_product_ids,
         "url": session.url,
     }
 

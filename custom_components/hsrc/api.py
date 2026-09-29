@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import aiohttp
 
-from .const import BROWSER_USER_AGENT, HOME_URL, LOGIN_URL, ORDER_HISTORY_URL, ORDER_URL
+from .const import BASKET_URL, BROWSER_USER_AGENT, HOME_URL, LOGIN_URL, MEMBERSHIP_STATUS, ORDER_HISTORY_URL, ORDER_URL
 from .parsing import (
     HsrcParseError,
     OrderItem,
     OrderSummary,
     is_logged_in,
+    parse_add_to_basket_form,
+    parse_basket_product_ids,
     parse_listing,
     parse_login_error,
     parse_login_form,
@@ -73,3 +75,15 @@ class HsrcClient:
 
     async def async_get_order_items(self, order_id: int) -> list[OrderItem]:
         return parse_order_items(await self._async_fetch_signed_in(ORDER_URL.format(order_id=order_id)))
+
+    async def async_get_basket_product_ids(self) -> set[int]:
+        return parse_basket_product_ids(await self._async_fetch_signed_in(BASKET_URL))
+
+    async def async_add_to_basket(self, product_url: str) -> None:
+        try:
+            form = parse_add_to_basket_form(await self._async_fetch_signed_in(product_url), MEMBERSHIP_STATUS)
+        except HsrcParseError as error:
+            raise HsrcApiError(str(error)) from error
+        async with self._session.post(form.action, data=form.fields, headers=HEADERS) as response:
+            if response.status >= 400:
+                raise HsrcApiError(f"Adding {product_url} to the basket returned {response.status}")
