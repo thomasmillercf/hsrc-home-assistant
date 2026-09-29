@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to hsrc.info",
+        "description": "Sign in with the email and password you use to book HSRC training.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in to hsrc.info again",
+        "description": "hsrc.info no longer accepts the password for {email}.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "hsrc.info rejected the email or password.",
+      "cannot_connect": "Could not reach hsrc.info."
+    },
+    "abort": {
+      "already_configured": "This hsrc.info login is already set up.",
+      "reauth_successful": "Signed in again."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "next_session_booked": {
+        "name": "Next early session booked"
+      }
+    },
+    "calendar": {
+      "booked_training": {
+        "name": "Early training"
+      }
+    },
+    "sensor": {
+      "next_booked_session": {
+        "name": "Next booked early session"
+      },
+      "unbooked_sessions": {
+        "name": "Unbooked early sessions"
+      }
+    }
+  }
+}

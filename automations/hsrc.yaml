@@ -1,0 +1,89 @@
+- id: hsrc_early_sessions_released
+  alias: HSRC - early sessions released
+  description: Alerts when newly released EARLY sessions are on sale and not yet booked.
+  triggers:
+    - trigger: state
+      entity_id: sensor.hsrc_unbooked_early_sessions
+      not_from: [unavailable, unknown]
+      not_to: [unavailable, unknown]
+  conditions:
+    - condition: template
+      value_template: "{{ trigger.to_state.state | int(0) > trigger.from_state.state | int(0) }}"
+  actions:
+    - variables:
+        sessions: "{{ state_attr('sensor.hsrc_unbooked_early_sessions', 'sessions') }}"
+    - action: notify.mobile_app_sm_s938b
+      data:
+        title: HSRC early sessions released
+        message: >-
+          Not booked yet:
+          {% for session in sessions %}{{ as_datetime(session.date).strftime('%a %-d %b') }}{{ ', ' if not loop.last }}{% endfor %}.
+        data:
+          url: "{{ sessions[0].url }}"
+          clickAction: "{{ sessions[0].url }}"
+          ttl: 0
+          priority: high
+  mode: queued
+
+- id: hsrc_friday_booking_reminder
+  alias: HSRC - Friday booking reminder
+  description: Reminds on Friday evening when Monday's EARLY session is not booked.
+  triggers:
+    - trigger: time
+      at: "18:00:00"
+      weekday: fri
+  actions:
+    - action: homeassistant.update_entity
+      target:
+        entity_id: binary_sensor.hsrc_next_early_session_booked
+    - condition: state
+      entity_id: binary_sensor.hsrc_next_early_session_booked
+      state: "off"
+    - variables:
+        start: "{{ state_attr('binary_sensor.hsrc_next_early_session_booked', 'start') }}"
+        places_left: "{{ state_attr('binary_sensor.hsrc_next_early_session_booked', 'places_left') }}"
+        url: "{{ state_attr('binary_sensor.hsrc_next_early_session_booked', 'url') or 'https://hsrc.info' }}"
+    - action: notify.mobile_app_sm_s938b
+      data:
+        title: Book HSRC early training
+        message: >-
+          {{ as_datetime(start).strftime('%A %-d %B') }} is not booked.
+          {% if places_left is not none %}{{ places_left }} places left.{% endif %}
+        data:
+          url: "{{ url }}"
+          clickAction: "{{ url }}"
+          ttl: 0
+          priority: high
+  mode: single
+
+- id: hsrc_monday_session_status
+  alias: HSRC - Monday session status
+  description: Says at 3pm on Monday whether tonight's EARLY session is booked.
+  triggers:
+    - trigger: time
+      at: "15:00:00"
+      weekday: mon
+  actions:
+    - action: homeassistant.update_entity
+      target:
+        entity_id: binary_sensor.hsrc_next_early_session_booked
+    - variables:
+        places_left: "{{ state_attr('binary_sensor.hsrc_next_early_session_booked', 'places_left') }}"
+        booking_url: "{{ state_attr('binary_sensor.hsrc_next_early_session_booked', 'url') }}"
+        tonight: "{{ state_attr('binary_sensor.hsrc_next_early_session_booked', 'date') == now().date().isoformat() }}"
+        booked: "{{ is_state('binary_sensor.hsrc_next_early_session_booked', 'on') }}"
+    - action: notify.mobile_app_sm_s938b
+      data:
+        title: >-
+          {% if not tonight %}No HSRC training tonight{% elif booked %}HSRC training booked tonight
+          {% else %}HSRC training not booked tonight{% endif %}
+        message: >-
+          {% if not tonight %}There is no EARLY session listed for today.
+          {% elif booked %}EARLY session 6:00pm to 7:25pm is booked.
+          {% else %}EARLY session at 6:00pm is not booked{% if places_left is not none %}, {{ places_left }} places left{% endif %}.{% endif %}
+        data:
+          url: "{{ booking_url if tonight and not booked and booking_url else 'https://hsrc.info/index.php?main_page=account_history' }}"
+          clickAction: "{{ booking_url if tonight and not booked and booking_url else 'https://hsrc.info/index.php?main_page=account_history' }}"
+          ttl: 0
+          priority: high
+  mode: single
