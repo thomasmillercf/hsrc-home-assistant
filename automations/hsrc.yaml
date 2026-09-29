@@ -17,6 +17,8 @@
         sessions: "{{ state_attr('sensor.hsrc_unbooked_early_sessions', 'sessions') or [] }}"
         in_basket: "{{ sessions | selectattr('in_basket') | list }}"
         full: "{{ sessions | rejectattr('in_basket') | list }}"
+    - condition: template
+      value_template: "{{ sessions | count > 0 }}"
     - action: notify.mobile_app_sm_s938b
       data:
         title: HSRC early sessions not booked
